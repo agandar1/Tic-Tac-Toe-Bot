@@ -1,3 +1,19 @@
+//// Tic Tac Toe Program
+//// With AI to play against
+
+/// all indexes for ways to win
+const _triplets_ = [
+    [0, 1, 2], [3, 4, 5], [6, 7, 8], // horizontal
+    [0, 3, 6], [1, 4, 7], [2, 5, 8], // vertical
+    [0, 4, 8], [2, 4, 6]            // diagonal
+];
+
+/// other useful indexes
+const _corners_ = [0, 2, 6, 8];
+const _edges_ = [1, 3, 5, 7];
+const _outer_ = [[0, 1, 2], [0, 3, 6], [2, 5, 8], [6, 7, 8]];
+const _diags_ = [[0, 4, 8], [2, 4, 6]];
+
 function draw_line(canvas, coords, color) {
     /// Draw a line on the canvas
     /// used to draw the board and the winner line
@@ -38,147 +54,173 @@ function draw_o(canvas, x, y) {
 function draw_board(canvas, board, win) {
     /// Draw the tic tac toe board and any pieces on it 
     /// and a red line if someone won
+    const grid_color = "#585858";
+    const win_color = "#ab4642";
     const verti = [[[315, 50], [315, 850]], [[585, 50], [585, 850]]]
     const horiz = verti.map(l => l.map(c => [c[1], c[0]]));
 
-    verti.forEach(l => draw_line(canvas, l, "#585858"));
-    horiz.forEach(l => draw_line(canvas, l, "#585858"));
-    board.forEach((_, i) => board[i].forEach((_, j) => {
-        board[i][j] == 1 ? draw_x(canvas, j, i) : board[i][j] == 10 ? draw_o(canvas, j, i) : null;
-    }));
+    // draw grid
+    verti.forEach(l => draw_line(canvas, l, grid_color));
+    horiz.forEach(l => draw_line(canvas, l, grid_color));
+    // draw x's and o's
+    board.forEach((_, i) => {
+        board[i] == 1 ?
+            draw_x(canvas, i%3, Math.floor(i/3)) : board[i] == 10 ?
+            draw_o(canvas, i%3, Math.floor(i/3)) : null;
+    });
     
     // If someone won, draw the red line(s) 
     win.forEach(w => {
         if (w.type == 'row')
-            draw_line(canvas, [[50, 180+(270*w.index)], [850, 180+(270*w.index)]], "#ab4642");
+            draw_line(canvas, [[50, 180+(270*w.index)], [850, 180+(270*w.index)]], win_color);
         if (w.type == 'col')
-            draw_line(canvas, [[180+(270*w.index), 50], [180+(270*w.index), 850]], "#ab4642");
+            draw_line(canvas, [[180+(270*w.index), 50], [180+(270*w.index), 850]], win_color);
         if (w.type == 'diag1')
-            draw_line(canvas, [[50, 50], [850, 850]], "#ab4642");
+            draw_line(canvas, [[50, 50], [850, 850]], win_color);
         if (w.type == 'diag2')
-            draw_line(canvas, [[850, 50], [50, 850]], "#ab4642");
+            draw_line(canvas, [[850, 50], [50, 850]], win_color);
     });
 }
 
+function sum_triplet(board, triplet) {
+    /// sum up the values of a triplet
+    return triplet.map((x) => board[x]).reduce((x, y) => x+y);
+}
+
 function check_win(board) {
-    /// Check if someone won
-    const win = [30, 3];
-    let winner = [];
-    let spots = [];
+    /// add up all the triplets
+    const sums = _triplets_.map((t) => sum_triplet(board, t));
+    let winners = [];
 
-    board.forEach((row, i) => {
-        const rscore = row.reduce((x, y) => x+y);
-        const cscore = board.map(r => r[i]).reduce((x, y) => x+y);
-        winner = win.includes(rscore) ? [...winner, {'type': 'row', 'index': i}] : winner;
-        winner = win.includes(cscore) ? [...winner, {'type': 'col', 'index': i}] : winner;
-        row.forEach((spot) => spots.push(spot));
-    });
+    // check if any of the horizontal or vertical ones are winners
+    for (let i = 0; i < 3; i++) {
+        winners = [30, 3].includes(sums[i]) ? [...winners, {'type': 'row', 'index': i}] : winners;
+        winners = [30, 3].includes(sums[i+3]) ? [...winners, {'type': 'col', 'index': i}] : winners;
+    }
+    // check both diagonals
+    winners = [30, 3].includes(sums[6]) ? [...winners, {'type': 'diag1', 'index': 0}] : winners;
+    winners = [30, 3].includes(sums[7]) ? [...winners, {'type': 'diag2', 'index': 2}] : winners;
+    // check if the board is full
+    winners = board.every(Boolean) ? [...winners, {'type': 'full', 'index': 0}] : winners;
 
-    const diag1 = board[0][0] + board[1][1] + board[2][2];
-    const diag2 = board[2][0] + board[1][1] + board[0][2];
-    winner = win.includes(diag1) ? [...winner, {'type': 'diag1', 'index': 0}] : winner;
-    winner = win.includes(diag2) ? [...winner, {'type': 'diag2', 'index': 2}] : winner;
-    winner = spots.every(Boolean) ? [...winner, {'type': 'full', 'index': 0}] : winner;
-
-    return winner;
+    return winners;
 }
 
 function new_game(human_first) {
     /// create a new game state 
     return {
-        'board': new Array(3).fill(0).map(() => new Array(3).fill(0)),
+        'board': new Array(9).fill(0),
         'human': human_first ? 1 : 10,
+        'ai': human_first ? 10 : 1,
         'turn': 1,
-        'game_over': false,
-        'win': []
+        'win': [],
+        'game_over': false
     };
 }
 
-function make_move(state, spot) {
+function apply_move(state, spot) {
     /// update the state of the game
-    // use JSON to make a copy of the state (we don't want reference)
-    // some browsers still don't support structuredCopy
-    const new_state = JSON.parse(JSON.stringify(state));
-    new_state.board[spot[0]][spot[1]] = new_state.turn;
-    new_state.win = check_win(new_state.board)
+    const new_board = state.board.slice();
+    new_board[spot] = state.turn;
+    const win = check_win(new_board);
     return {
-        'board': new_state.board,
-        'human': new_state.human,
-        'turn': new_state.turn == 1 ? 10 : 1,
-        'game_over': new_state.win.length == 0 ? false : true,
-        'win': new_state.win
+        'board': new_board,
+        'human': state.human,
+        'ai': state.human == 1 ? 10 : 1,
+        'turn': state.turn == 1 ? 10 : 1,
+        'win': win,
+        'game_over': win.length == 0 ? false : true
     };
 }
 
-function empty_spots(board) {
-    spots = [];
-    for (let i = 0; i < 3; i++)
-        for (let j = 0; j < 3; j++)
-            if (board[i][j] == 0)
-                spots.push([i, j]);
-    return spots;
+function find_triplet(board, target_sum, triplets = _triplets_) {
+    /// find a triplet that adds up to target_sum
+    return triplets.find((t) => sum_triplet(board, t) == target_sum);
 }
 
-function win_or_block (board, ai) {
-    // scores each player needs for 2 in a row
-    const ai_win = ai * 2;
-    const human_win = ai == 1 ? 20 : 2;
-    // lists of possible winning moves
-    let ai_2s = [];
-    let human_2s = [];
+function find_empty(board, indexes) {
+    /// check a list of indexes and return an empty spot
+    const empty = indexes.find((i) => board[i] == 0);
+    return empty != null ? empty : -1;
+}
 
-    board.forEach((row, i) => {
-        const col = board.map(r => r[i]);
-        const rscore = row.reduce((x, y) => x+y);
-        const cscore = col.reduce((x, y) => x+y);
-        if (rscore == ai_win)
-            ai_2s.push([i, row.indexOf(0)]);
-        if (cscore == ai_win)
-            ai_2s.push([col.indexOf(0), i]);
-        if (rscore == human_win)
-            human_2s.push([i, row.indexOf(0)]);
-        if (cscore == human_win)
-            human_2s.push([col.indexOf(0), i]);
-    });
+function win_or_block(state) {
+    /// if ai has 2 in a row, win.
+    /// otherwise if human has 2 in a row, block
+    const ai_triplet = find_triplet(state.board, state.ai*2);
+    const human_triplet = find_triplet(state.board, state.human*2);
+    return Boolean(ai_triplet) ?
+        find_empty(state.board, ai_triplet) + 1 : Boolean(human_triplet) ?
+        find_empty(state.board, human_triplet) + 1 : false;
+}
 
-    diag1_coords = [[0, 0], [1, 1], [2, 2]];
-    diag2_coords = [[2, 0], [1, 1], [0, 2]];
-    const diag1 = board[0][0] + board[1][1] + board[2][2];
-    const diag2 = board[2][0] + board[1][1] + board[0][2];
-    console.log("diag1:", diag1);
-    console.log("diag2:", diag2);
-    if (diag1 == ai_win) 
-        for (const x of diag1_coords) 
-            if (board[x[0]][x[1]] == 0)
-                ai_2s.push(x);
-    if (diag2 == ai_win) 
-        for (const x of diag2_coords) 
-            if (board[x[0]][x[1]] == 0)
-                ai_2s.push(x);
-    if (diag1 == human_win) 
-        for (const x of diag1_coords) 
-            if (board[x[0]][x[1]] == 0)
-                human_2s.push(x);
-    if (diag2 == human_win) 
-        for (const x of diag2_coords) 
-            if (board[x[0]][x[1]] == 0)
-                human_2s.push(x);
+function opening_moves(state) {
+    /// if ai is first, play in a corner
+    /// if ai is second, play in the center 
+    const open = [...Array(9).keys()].filter((i) => state.board[i] == 0);
+    const open_corners = _corners_.filter((i) => state.board[i] == 0);
+    return open.length < 8 ? false : open_corners.length == 4 ?
+        _corners_[Math.floor(Math.random()*4)] + 1 : 5;
+}
+
+function combo_plays(state) {
+    /// if ai has a squeeze play, win by playing in a corner
+    /// if human has a squeeze play, block by playing in an edge
+    /// if ai or human has a two on one play, win or block by playing in a corner
+    const human_sum = state.human + state.ai + state.human;
+    const ai_sum = state.ai + state.human + state.ai;
+    const ai_combo = find_triplet(state.board, ai_sum, _diags_);
+    const human_combo = find_triplet(state.board, human_sum, _diags_);
+
+    if ((state.board[0] != 0 && (state.board[0] == state.board[8]))
+        || (state.board[2] != 0 && (state.board[2] == state.board[6])))
+        return Boolean(ai_combo) ?
+            find_empty(state.board, _corners_) + 1: Boolean(human_combo) ?
+            find_empty(state.board, _edges_) + 1: false;
+
+    return Boolean(ai_combo) || Boolean(human_combo) ?
+        find_empty(state.board, _corners_) + 1: false
+}
+
+function triangle_play(state) {
+    /// if the opponent goes second and doesn't play in the center,
+    /// play in the right corners to make a triangle combo and guarantee a win
+    const open_corners = _corners_.filter((i) => state.board[i] == 0);
+    if (open_corners.length == 1)
+        return open_corners[0] + 1;
     
-    return ai_2s.length > 0 ? ai_2s[0] : human_2s.length > 0 ? human_2s[0] : false;
+    const triplet = find_triplet(state.board, state.ai, _outer_);
+    const result = find_empty(state.board, [triplet[0], triplet[2]]) + 1;
+    return result;
+}
+
+function setup_combo(state) {
+    // if human doesn't play in the center, ai can try to set up a triangle play
+    // otherwise ai can try to set up squeeze or two on one
+    const open = [...Array(9).keys()].filter((i) => state.board[i] == 0);
+    if (state.board[4] == 0)
+        return triangle_play(state);
+    if (open.length != 7)
+        return false;
+
+    const target_sum = state.human + state.ai
+    const combo = find_triplet(state.board, target_sum, _diags_);
+
+    return Boolean(combo) ? find_empty(state.board, combo) + 1 : false;
 }
 
 function random_move(board) {
     /// choose a move at random, make sure it's open on the board
-    do {
-        x = Math.floor(Math.random() * 3);
-        y = Math.floor(Math.random() * 3);
-    } while (board[x][y] != 0);
-    return [x, y];
+    const open = [...Array(board.length).keys()].filter((i) => board[i] == 0);
+    return open[Math.floor(Math.random()*open.length)] + 1;
 }
 
 function ai_move(state) {
     /// choose the best move for the ai
-    return win_or_block(state.board, state.human == 1 ? 10 : 1)
+    return win_or_block(state)
+        || opening_moves(state)
+        || setup_combo(state)
+        || combo_plays(state)
         || random_move(state.board);
 }
 
@@ -190,6 +232,7 @@ function ai_move(state) {
     const context = canvas.getContext("2d");
     const rect = canvas.getBoundingClientRect();
     let state = new_game(true);
+    let coord = 0;
     draw_board(context, state.board, state.win);
 
     playFirst.onclick = () => {
@@ -203,7 +246,7 @@ function ai_move(state) {
         // Start a new game with the AI going first
         context.clearRect(0, 0, canvas.width, canvas.height);
         state = new_game(false);
-        state = make_move(state, ai_move(state));
+        state = apply_move(state, ai_move(state)-1);
         draw_board(context, state.board, state.win);
     }
 
@@ -214,15 +257,16 @@ function ai_move(state) {
         // check that the click is in bounds
         if (x >= 50 && x <= 850 && y >= 50 && y <= 850) {
             // convert mouse position to array indexes
-            c = x <= 310 ? 0 : x <= 580 ? 1 : 2;
-            r = y <= 310 ? 0 : y <= 580 ? 1 : 2;
+            col = x <= 310 ? 0 : x <= 580 ? 1 : 2;
+            row = y <= 310 ? 0 : y <= 580 ? 1 : 2;
+            coord = (row * 3) + col;
             // if the spot is empty and the game is ongoing, play there
-            if (state.board[r][c] == 0 && !state.game_over){
-                state = make_move(state, [r, c]);
+            if (state.board[coord] == 0 && !state.game_over){
+                state = apply_move(state, coord);
                 draw_board(context, state.board, state.win);
                 // if the player didn't win, let the ai take a tun
                 if (!state.game_over) {
-                    state = make_move(state, ai_move(state));
+                    state = apply_move(state, ai_move(state)-1);
                     draw_board(context, state.board, state.win);
                 }
             }
