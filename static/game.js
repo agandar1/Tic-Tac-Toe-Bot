@@ -126,12 +126,12 @@ function new_game(human_first, mode) {
     };
 }
 
-function apply_move(state, spot) {
+async function apply_move(state, spot) {
     /// update the state of the game
     const new_board = state.board.slice();
     new_board[spot] = state.turn;
     const win = check_win(new_board);
-    return {
+    const new_state = {
         'board': new_board,
         'mode': state.mode,
         'human': state.human,
@@ -140,6 +140,15 @@ function apply_move(state, spot) {
         'win': win,
         'game_over': win.length == 0 ? false : true
     };
+
+    console.log(new_state);
+    const response = await fetch('/update_state', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(new_state)
+    });
+
+    return new_state;
 }
 
 function find_triplet(board, target_sum, triplets = _triplets_) {
@@ -227,7 +236,6 @@ function random_move(state) {
 function ai_move(state) {
     /// choose the best move for the ai depending on the difficulty
     const mode = state.mode;
-    console.log(mode);
     return mode == "easy"   ? random_move(state)
         :  mode == "medium" ? win_or_block(state) || random_move(state)
         :  mode == "hard"   ? win_or_block(state) || combo_plays(state) || random_move(state)
@@ -238,18 +246,19 @@ function ai_move(state) {
         || random_move(state);
 }
 
-(() => {
+(async () => {
     /// Get the needed DOM elements and start the game
     const canvas = document.getElementById("myCanvas");
     const context = canvas.getContext("2d");
     const rect = canvas.getBoundingClientRect();
     const button_wrapper = document.getElementById("buttons");
     const buttons = [...document.getElementsByClassName("btn")];
-    let state = new_game(true, "easy");
+    const response = await fetch('/get_state');
+    let state = await response.json();
     let coord = 0;
     draw_board(context, state, buttons);
 
-    button_wrapper.addEventListener('click', (e) => {
+    button_wrapper.addEventListener('click', async (e) => {
         /// If a button was clicked, start a new game with the new options
         if (!(e.target.nodeName === 'BUTTON'))
             return;
@@ -263,12 +272,12 @@ function ai_move(state) {
         context.clearRect(0, 0, canvas.width, canvas.height);
         state = new_game(human_first, mode);
         if (!human_first && mode != "twoPlayer")
-            state = apply_move(state, ai_move(state)-1);
+            state = await apply_move(state, ai_move(state)-1);
 
         draw_board(context, state, buttons);
     });
 
-    canvas.onclick = (e) => {
+    canvas.onclick = async (e) => {
         // get the mouse position
         x = e.clientX - rect.left
         y = e.clientY - rect.top
@@ -280,11 +289,11 @@ function ai_move(state) {
             coord = (row * 3) + col;
             // if the spot is empty and the game is ongoing, play there
             if (state.board[coord] == 0 && !state.game_over){
-                state = apply_move(state, coord);
+                state = await apply_move(state, coord);
                 draw_board(context, state, buttons);
                 // if the player didn't win and the ai is playing, let the ai take a turn
                 if (!state.game_over && state.mode != "twoPlayer") {
-                    state = apply_move(state, ai_move(state)-1);
+                    state = await apply_move(state, ai_move(state)-1);
                     draw_board(context, state, buttons);
                 }
             }
