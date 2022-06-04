@@ -83,13 +83,8 @@ function draw_board(canvas, state, buttons) {
 
     // Invert the colors of the chosen options
     buttons.forEach(b =>{
-        const id = b.id
-        b.classList.remove('btn-blue-chosen', 'btn-yellow-chosen', 'btn-white-chosen');
-        if (state.human == 1 && id == "playFirst")
-            b.classList.add('btn-blue-chosen');
-        if (state.human == 10 && id == "playSecond")
-            b.classList.add('btn-yellow-chosen');
-        if (id == state.mode)
+        b.classList.remove('btn-white-chosen');
+        if (b.id == state.mode)
             b.classList.add('btn-white-chosen');
     })
 }

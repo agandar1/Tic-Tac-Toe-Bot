@@ -36,11 +36,6 @@ body {
     color: #181818 !important;
 }
 
-.btn-blue-chosen {
-    background-color: #7cafc2 !important;
-    color: #181818 !important;
-}
-
 .btn-outline-warning, .btn-outline-warning:active, .btn-outline-warning:visited {
     color: #f7ca88 !important;
     border-color: #f7ca88 !important;
@@ -50,11 +45,6 @@ body {
     background-color: #f7ca88 !important;
     color: #181818 !important;
 }
-
-.btn-yellow-chosen {
-    background-color: #f7ca88 !important;
-    color: #181818 !important;
-} 
 
 .btn-outline-light, .btn-outline-light:active, .btn-outline-light:visited {
     color: #d8d8d8 !important;
