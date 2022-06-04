@@ -209,9 +209,9 @@ function setup_combo(state) {
     return Boolean(combo) ? find_empty(state.board, combo) + 1 : false;
 }
 
-function random_move(board) {
+function random_move(state) {
     /// choose a move at random, make sure it's open on the board
-    const open = [...Array(board.length).keys()].filter((i) => board[i] == 0);
+    const open = [...Array(state.board.length).keys()].filter((i) => state.board[i] == 0);
     return open[Math.floor(Math.random()*open.length)] + 1;
 }
 
@@ -221,7 +221,7 @@ function ai_move(state) {
         || opening_moves(state)
         || setup_combo(state)
         || combo_plays(state)
-        || random_move(state.board);
+        || random_move(state);
 }
 
 (() => {
