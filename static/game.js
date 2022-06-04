@@ -51,7 +51,7 @@ function draw_o(canvas, x, y) {
     canvas.stroke()   
 }
 
-function draw_board(canvas, board, win) {
+function draw_board(canvas, state, buttons) {
     /// Draw the tic tac toe board and any pieces on it 
     /// and a red line if someone won
     const grid_color = "#585858";
@@ -63,14 +63,14 @@ function draw_board(canvas, board, win) {
     verti.forEach(l => draw_line(canvas, l, grid_color));
     horiz.forEach(l => draw_line(canvas, l, grid_color));
     // draw x's and o's
-    board.forEach((_, i) => {
-        board[i] == 1 ?
-            draw_x(canvas, i%3, Math.floor(i/3)) : board[i] == 10 ?
+    state.board.forEach((_, i) => {
+        state.board[i] == 1 ?
+            draw_x(canvas, i%3, Math.floor(i/3)) : state.board[i] == 10 ?
             draw_o(canvas, i%3, Math.floor(i/3)) : null;
     });
     
     // If someone won, draw the red line(s) 
-    win.forEach(w => {
+    state.win.forEach(w => {
         if (w.type == 'row')
             draw_line(canvas, [[50, 180+(270*w.index)], [850, 180+(270*w.index)]], win_color);
         if (w.type == 'col')
@@ -80,6 +80,18 @@ function draw_board(canvas, board, win) {
         if (w.type == 'diag2')
             draw_line(canvas, [[850, 50], [50, 850]], win_color);
     });
+
+    // Invert the colors of the chosen options
+    buttons.forEach(b =>{
+        const id = b.id
+        b.classList.remove('btn-blue-chosen', 'btn-yellow-chosen', 'btn-white-chosen');
+        if (state.human == 1 && id == "playFirst")
+            b.classList.add('btn-blue-chosen');
+        if (state.human == 10 && id == "playSecond")
+            b.classList.add('btn-yellow-chosen');
+        if (id == state.mode)
+            b.classList.add('btn-white-chosen');
+    })
 }
 
 function sum_triplet(board, triplet) {
@@ -106,10 +118,11 @@ function check_win(board) {
     return winners;
 }
 
-function new_game(human_first) {
+function new_game(human_first, mode) {
     /// create a new game state 
     return {
         'board': new Array(9).fill(0),
+        'mode': mode,
         'human': human_first ? 1 : 10,
         'ai': human_first ? 10 : 1,
         'turn': 1,
@@ -125,8 +138,9 @@ function apply_move(state, spot) {
     const win = check_win(new_board);
     return {
         'board': new_board,
+        'mode': state.mode,
         'human': state.human,
-        'ai': state.human == 1 ? 10 : 1,
+        'ai': state.ai,
         'turn': state.turn == 1 ? 10 : 1,
         'win': win,
         'game_over': win.length == 0 ? false : true
@@ -216,8 +230,13 @@ function random_move(state) {
 }
 
 function ai_move(state) {
-    /// choose the best move for the ai
-    return win_or_block(state)
+    /// choose the best move for the ai depending on the difficulty
+    const mode = state.mode;
+    console.log(mode);
+    return mode == "easy"   ? random_move(state)
+        :  mode == "medium" ? win_or_block(state) || random_move(state)
+        :  mode == "hard"   ? win_or_block(state) || combo_plays(state) || random_move(state)
+        :  win_or_block(state)
         || opening_moves(state)
         || setup_combo(state)
         || combo_plays(state)
@@ -227,28 +246,32 @@ function ai_move(state) {
 (() => {
     /// Get the needed DOM elements and start the game
     const canvas = document.getElementById("myCanvas");
-    const playFirst = document.getElementById("playFirst");
-    const playSecond = document.getElementById("playSecond");
     const context = canvas.getContext("2d");
     const rect = canvas.getBoundingClientRect();
-    let state = new_game(true);
+    const button_wrapper = document.getElementById("buttons");
+    const buttons = [...document.getElementsByClassName("btn")];
+    let state = new_game(true, "easy");
     let coord = 0;
-    draw_board(context, state.board, state.win);
+    draw_board(context, state, buttons);
 
-    playFirst.onclick = () => {
-        // Start a new game with the player going first
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        state = new_game(true);
-        draw_board(context, state.board, state.win);
-    }
+    button_wrapper.addEventListener('click', (e) => {
+        /// If a button was clicked, start a new game with the new options
+        if (!(e.target.nodeName === 'BUTTON'))
+            return;
 
-    playSecond.onclick = () => {
-        // Start a new game with the AI going first
+        const button = e.target.id
+        const mode = button != "playFirst" && button != "playSecond" ? button : state.mode;
+        const human_first = button == "playFirst" ? true
+              : button == "playSecond" ? false
+              : state.human == 1;
+
         context.clearRect(0, 0, canvas.width, canvas.height);
-        state = new_game(false);
-        state = apply_move(state, ai_move(state)-1);
-        draw_board(context, state.board, state.win);
-    }
+        state = new_game(human_first, mode);
+        if (!human_first && mode != "twoPlayer")
+            state = apply_move(state, ai_move(state)-1);
+
+        draw_board(context, state, buttons);
+    });
 
     canvas.onclick = (e) => {
         // get the mouse position
@@ -263,11 +286,11 @@ function ai_move(state) {
             // if the spot is empty and the game is ongoing, play there
             if (state.board[coord] == 0 && !state.game_over){
                 state = apply_move(state, coord);
-                draw_board(context, state.board, state.win);
-                // if the player didn't win, let the ai take a tun
-                if (!state.game_over) {
+                draw_board(context, state, buttons);
+                // if the player didn't win and the ai is playing, let the ai take a turn
+                if (!state.game_over && state.mode != "twoPlayer") {
                     state = apply_move(state, ai_move(state)-1);
-                    draw_board(context, state.board, state.win);
+                    draw_board(context, state, buttons);
                 }
             }
         }
