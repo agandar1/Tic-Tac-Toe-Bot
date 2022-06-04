@@ -113,9 +113,9 @@ function check_win(board) {
     return winners;
 }
 
-function new_game(human_first, mode) {
+async function new_game(human_first, mode) {
     /// create a new game state 
-    return {
+    const new_state = {
         'board': new Array(9).fill(0),
         'mode': mode,
         'human': human_first ? 1 : 10,
@@ -124,6 +124,14 @@ function new_game(human_first, mode) {
         'win': [],
         'game_over': false
     };
+
+    await fetch('/update_state', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(new_state)
+    });
+
+    return new_state;
 }
 
 async function apply_move(state, spot) {
@@ -141,8 +149,7 @@ async function apply_move(state, spot) {
         'game_over': win.length == 0 ? false : true
     };
 
-    console.log(new_state);
-    const response = await fetch('/update_state', {
+    await fetch('/update_state', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(new_state)
@@ -270,7 +277,7 @@ function ai_move(state) {
               : state.human == 1;
 
         context.clearRect(0, 0, canvas.width, canvas.height);
-        state = new_game(human_first, mode);
+        state = await new_game(human_first, mode);
         if (!human_first && mode != "twoPlayer")
             state = await apply_move(state, ai_move(state)-1);
 
