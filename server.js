@@ -26,7 +26,6 @@ function new_game() {
 
 app.get('/get_state', (req, res) => {
     let state;
-    console.log(req.session.state);
     if (req.session.state)
         state = req.session.state;
     else
