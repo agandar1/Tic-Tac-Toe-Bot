@@ -183,9 +183,10 @@ function opening_moves(state) {
     /// if ai is first, play in a corner
     /// if ai is second, play in the center 
     const open = [...Array(9).keys()].filter((i) => state.board[i] == 0);
-    const open_corners = _corners_.filter((i) => state.board[i] == 0);
-    return open.length < 8 ? false : open_corners.length == 4 ?
-        _corners_[Math.floor(Math.random()*4)] + 1 : 5;
+    const count = open.length;
+    return count < 8 ? false
+        : count == 9 ? _corners_[Math.floor(Math.random()*4)] + 1
+        : 5;
 }
 
 function combo_plays(state) {
