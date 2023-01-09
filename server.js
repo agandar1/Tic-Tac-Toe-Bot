@@ -24,6 +24,10 @@ function new_game() {
     };
 }
 
+app.get('/', (req, res) => {
+    res.sendFile('index.html');
+});
+
 app.get('/get_state', (req, res) => {
     let state;
     if (req.session.state)
